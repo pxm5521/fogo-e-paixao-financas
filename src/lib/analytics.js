@@ -156,3 +156,45 @@ export function categoryYearRow(transactions, categories, categoryId, yearColumn
 
   return { categoriaId: cat.id, label: cat.label, valores, total }
 }
+
+// Tabela mês (linha) x ano (coluna) de "Rendimento": soma, com sinal (um mês
+// de rendimento negativo aparece negativo), todo lançamento cujo Motivo seja
+// exatamente "Rendimento" (ignorando maiúscula/acento) — em qualquer
+// categoria. Os anos das colunas saem dos próprios lançamentos encontrados
+// (não é uma lista fixa), então cobre qualquer categoria marcada assim, não
+// só Investimento.
+export function rendimentoMensalPivot(transactions) {
+  const porMes = new Map() // mes (1-12) -> { ano: valor }
+  const anosSet = new Set()
+
+  for (const t of transactions) {
+    if (normalizeLabel(t.motivoOriginal || t.descricao || '') !== 'rendimento') continue
+    const [anoStr, mesStr] = (t.data || '').split('-')
+    const ano = Number(anoStr)
+    const mes = Number(mesStr)
+    if (!ano || !mes) continue
+    anosSet.add(ano)
+    if (!porMes.has(mes)) porMes.set(mes, {})
+    const bucket = porMes.get(mes)
+    bucket[ano] = (bucket[ano] ?? 0) + t.valor
+  }
+
+  const anos = Array.from(anosSet).sort((a, b) => a - b)
+  const totalPorAno = {}
+  for (const ano of anos) totalPorAno[ano] = 0
+  let totalGeral = 0
+
+  const linhas = Array.from({ length: 12 }, (_, i) => i + 1).map((mes) => {
+    const valoresMes = porMes.get(mes) ?? {}
+    let totalMes = 0
+    for (const ano of anos) {
+      const v = valoresMes[ano] ?? 0
+      totalMes += v
+      totalPorAno[ano] += v
+    }
+    totalGeral += totalMes
+    return { mes, valores: valoresMes, total: totalMes }
+  })
+
+  return { anos, linhas, totalPorAno, totalGeral }
+}

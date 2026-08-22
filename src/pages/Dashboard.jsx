@@ -14,10 +14,12 @@ import {
   distinctEvents,
   subcategoriaPivot,
   categoryYearRow,
+  rendimentoMensalPivot,
 } from '../lib/analytics'
 import { formatCurrency } from '../lib/format'
 
 const CARNAVAIS = ['Carnaval 2023', 'Carnaval 2024', 'Carnaval 2025', 'Carnaval 2026', 'Carnaval 2027']
+const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
 
 const selectClass = 'rounded-md border bg-transparent px-2.5 py-1.5 text-sm'
 
@@ -69,6 +71,10 @@ export default function Dashboard() {
     }
     return { totaisPorColuna, totalGeral }
   }, [carnavalPivot.columns, receitaExtraRows])
+  // Rendimentos (caixinha/investimento): também sempre com o histórico
+  // inteiro, pega qualquer lançamento com Motivo "Rendimento" em qualquer
+  // categoria — os anos das colunas saem dos próprios dados.
+  const rendimentoPivot = useMemo(() => rendimentoMensalPivot(transactions), [transactions])
 
   if (loading) return <p style={{ color: 'var(--text-secondary)' }}>Carregando…</p>
 
@@ -258,6 +264,84 @@ export default function Dashboard() {
                       </td>
                     </tr>
                   )}
+                </tfoot>
+              </table>
+            </div>
+          </>
+        )}
+      </Card>
+
+      <Card title="Rendimentos por mês">
+        {rendimentoPivot.anos.length === 0 ? (
+          <p className="py-4 text-sm" style={{ color: 'var(--text-muted)' }}>
+            Nenhum lançamento com Motivo "Rendimento" ainda.
+          </p>
+        ) : (
+          <>
+            <p className="mb-3 text-xs" style={{ color: 'var(--text-muted)' }}>
+              Sempre com o histórico inteiro (não usa o filtro de período/evento acima). Soma todo
+              lançamento cujo Motivo seja exatamente "Rendimento", com o sinal — um mês de rendimento
+              negativo aparece negativo.
+            </p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr style={{ color: 'var(--text-muted)' }} className="text-xs uppercase">
+                    <th className="py-1.5 pr-3">Mês</th>
+                    {rendimentoPivot.anos.map((ano) => (
+                      <th key={ano} className="py-1.5 pr-3 text-right whitespace-nowrap">
+                        {ano}
+                      </th>
+                    ))}
+                    <th className="py-1.5 pl-3 text-right whitespace-nowrap">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rendimentoPivot.linhas.map((linha) => (
+                    <tr key={linha.mes} className="border-t" style={{ borderColor: 'var(--gridline)' }}>
+                      <td className="py-1.5 pr-3">{MESES[linha.mes - 1]}</td>
+                      {rendimentoPivot.anos.map((ano) => {
+                        const v = linha.valores[ano]
+                        return (
+                          <td key={ano} className="py-1.5 pr-3 text-right tabular-nums whitespace-nowrap">
+                            {v ? (
+                              <span style={{ color: v < 0 ? 'var(--series-2)' : 'var(--series-1)' }}>
+                                {formatCurrency(v)}
+                              </span>
+                            ) : (
+                              <span style={{ color: 'var(--text-muted)' }}>—</span>
+                            )}
+                          </td>
+                        )
+                      })}
+                      <td
+                        className="py-1.5 pl-3 text-right font-medium tabular-nums whitespace-nowrap"
+                        style={{ color: linha.total < 0 ? 'var(--series-2)' : 'var(--series-1)' }}
+                      >
+                        {formatCurrency(linha.total)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-2" style={{ borderColor: 'var(--border)' }}>
+                    <td className="py-1.5 pr-3 font-medium">Total</td>
+                    {rendimentoPivot.anos.map((ano) => (
+                      <td
+                        key={ano}
+                        className="py-1.5 pr-3 text-right font-medium tabular-nums whitespace-nowrap"
+                        style={{ color: rendimentoPivot.totalPorAno[ano] < 0 ? 'var(--series-2)' : undefined }}
+                      >
+                        {formatCurrency(rendimentoPivot.totalPorAno[ano])}
+                      </td>
+                    ))}
+                    <td
+                      className="py-1.5 pl-3 text-right font-semibold tabular-nums whitespace-nowrap"
+                      style={{ color: rendimentoPivot.totalGeral < 0 ? 'var(--series-2)' : 'var(--series-1)' }}
+                    >
+                      {formatCurrency(rendimentoPivot.totalGeral)}
+                    </td>
+                  </tr>
                 </tfoot>
               </table>
             </div>
