@@ -1,0 +1,12 @@
+import { chromium } from 'playwright';
+const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
+const page = await browser.newPage();
+const errors = [];
+page.on('pageerror', (e) => errors.push(String(e)));
+page.on('console', (msg) => { if (msg.type() === 'error') errors.push(msg.text()); });
+await page.goto('http://localhost:4173/', { waitUntil: 'networkidle' });
+await page.waitForTimeout(1000);
+await page.screenshot({ path: '/tmp/login-screen.png' });
+console.log('TEXT:', await page.textContent('body'));
+console.log('ERRORS:', JSON.stringify(errors, null, 2));
+await browser.close();

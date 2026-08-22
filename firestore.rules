@@ -1,0 +1,29 @@
+rules_version = '2';
+
+// Regras de segurança do Firestore. Isto é o que REALMENTE protege os dados
+// (o VITE_ALLOWED_EMAILS do .env só controla a interface, não impede alguém
+// de ler o banco direto). Edite a lista abaixo com o(s) e-mail(s) do Google
+// que podem acessar o site, publique com `firebase deploy --only firestore:rules`
+// e mantenha os dois lugares (aqui e o .env) sincronizados.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAllowed() {
+      return request.auth != null &&
+        request.auth.token.email in [
+          '21.pedro.martins@gmail.com'
+          // Adicione outros e-mails aqui, separados por vírgula, se mais
+          // alguém do bloco for usar o site.
+        ];
+    }
+
+    match /blocos/{blocoId}/{document=**} {
+      allow read, write: if isAllowed();
+    }
+
+    // Qualquer outro caminho fica bloqueado por padrão.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
