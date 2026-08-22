@@ -63,7 +63,7 @@ export default function ReviewQueue() {
       {
         key: 'subcategoria',
         keyFn: subcategoriaKeyFor,
-        labelFn: (t) => `${subcategoryLabelFor(t)} — ${categoryLabelFor(t)}`,
+        labelFn: (t) => subcategoryLabelFor(t),
         eligible: (t) => Boolean(t.subcategoriaId),
       },
       { key: 'evento', keyFn: (t) => t.evento || NONE, labelFn: (t) => t.evento || 'Sem evento' },

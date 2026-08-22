@@ -69,15 +69,12 @@ export default function Categories() {
 
   async function handleRemoveSubcategory(cat, subId) {
     const count = usage.porSubcategoria.get(`${cat.id}|${subId}`) ?? 0
-    if (count > 0) {
-      const sub = cat.subcategorias.find((s) => s.id === subId)
-      if (
-        !confirm(
-          `${count} lançamento(s) usam a subcategoria "${sub?.label}". Se remover, eles continuam com a categoria "${cat.label}", mas ficam sem subcategoria. Continuar?`,
-        )
-      )
-        return
-    }
+    const sub = cat.subcategorias.find((s) => s.id === subId)
+    const aviso =
+      count > 0
+        ? `${count} lançamento(s) usam a subcategoria "${sub?.label}". Se remover, eles continuam com a categoria "${cat.label}", mas ficam sem subcategoria. `
+        : ''
+    if (!confirm(`${aviso}Remover a subcategoria "${sub?.label}"?`)) return
     await upsertCategory({ ...cat, subcategorias: cat.subcategorias.filter((s) => s.id !== subId) })
   }
 
