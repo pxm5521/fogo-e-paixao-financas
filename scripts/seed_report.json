@@ -1,0 +1,12 @@
+{
+  "total_lancamentos": 3008,
+  "total_categorias": 20,
+  "sem_categoria": 64,
+  "com_categoria_sem_subcategoria": 0,
+  "linhas_ignoradas_sem_valor": 23,
+  "linhas_ignoradas_data_futura": 0,
+  "periodo": [
+    "2021-12-01",
+    "2026-06-09"
+  ]
+}
