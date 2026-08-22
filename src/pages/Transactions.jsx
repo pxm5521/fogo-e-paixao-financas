@@ -87,7 +87,17 @@ export default function Transactions() {
     return transactions.filter((t) => {
       if (tipo && t.tipo !== tipo) return false
       if (term) {
-        const haystack = `${t.quem ?? ''} ${motivoFor(t)} ${t.evento ?? ''}`.toLowerCase()
+        const haystack = [
+          formatDate(t.data),
+          t.quem ?? '',
+          motivoFor(t),
+          t.categoriaId ? categoryLabelFor(t) : '',
+          subcategoryLabelFor(t),
+          t.evento ?? '',
+          formatCurrency(t.valor),
+        ]
+          .join(' ')
+          .toLowerCase()
         if (!haystack.includes(term)) return false
       }
       if (filters.data.length && !filters.data.includes(t.data)) return false
@@ -100,7 +110,8 @@ export default function Transactions() {
       if (filters.valor.length && !filters.valor.includes(t.valor)) return false
       return true
     })
-  }, [transactions, search, tipo, filters])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [transactions, search, tipo, filters, categories])
 
   const filtersActive = Object.values(filters).some((v) => v.length > 0)
 
@@ -127,7 +138,7 @@ export default function Transactions() {
       <div className="flex flex-wrap items-center gap-2">
         <input
           type="text"
-          placeholder="Buscar por quem, motivo, evento…"
+          placeholder="Buscar em todas as colunas…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className={`${selectClass} min-w-[240px] flex-1`}
