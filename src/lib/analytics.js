@@ -62,7 +62,7 @@ export function distinctEvents(transactions) {
   return Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-BR', { sensitivity: 'base' }))
 }
 
-function normalizeLabel(s) {
+export function normalizeLabel(s) {
   if (!s) return ''
   return s
     .normalize('NFKD')

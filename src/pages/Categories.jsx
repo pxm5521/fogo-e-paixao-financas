@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
 import Card from '../components/Card'
 import { useCategories, useTransactions } from '../hooks/useFirestoreData'
-import { upsertCategory, deleteCategory } from '../lib/firestoreApi'
+import { upsertCategory, deleteCategory, bulkUpsertTransactions } from '../lib/firestoreApi'
+import { normalizeLabel } from '../lib/analytics'
 
 const inputClass = 'rounded-md border bg-transparent px-2.5 py-1.5 text-sm'
 
@@ -39,6 +40,80 @@ export default function Categories() {
     }
     return { porCategoria, porSubcategoria }
   }, [transactions])
+
+  // Duas categorias com o mesmo nome (ignorando maiúscula/acento) — pode
+  // acontecer ao renomear uma categoria pra um nome que já existia em outra.
+  // Cada uma continua sendo um registro separado no banco (com sua própria
+  // lista de subcategorias e seus próprios lançamentos apontando pra ela),
+  // então aparecem duplicadas até você mesclar.
+  const duplicateGroups = useMemo(() => {
+    const byKey = new Map()
+    for (const cat of categories) {
+      const key = normalizeLabel(cat.label)
+      if (!byKey.has(key)) byKey.set(key, [])
+      byKey.get(key).push(cat)
+    }
+    return Array.from(byKey.values()).filter((group) => group.length > 1)
+  }, [categories])
+
+  // Mescla um grupo de categorias com o mesmo nome numa só: mantém a que tem
+  // mais lançamentos (menos coisa pra repontar), junta as listas de
+  // subcategorias (uma subcategoria com o mesmo nome nas duas vira uma linha
+  // só — os lançamentos que apontavam pra versão antiga passam a apontar pra
+  // essa), e por fim apaga as categorias que sobraram.
+  async function handleMerge(group) {
+    const withCount = group
+      .map((cat) => ({ cat, count: usage.porCategoria.get(cat.id) ?? 0 }))
+      .sort((a, b) => b.count - a.count)
+    const keep = withCount[0].cat
+    const drops = withCount.slice(1).map((x) => x.cat)
+
+    const subcategorias = [...(keep.subcategorias ?? [])]
+    const subKeyIndex = new Map(subcategorias.map((s) => [normalizeLabel(s.label), s.id]))
+    const usedIds = new Set(subcategorias.map((s) => s.id))
+    const subcategoriaIdRemap = new Map() // "categoriaAntigaId::subcategoriaAntigaId" -> novo id (dentro de `keep`)
+
+    for (const drop of drops) {
+      for (const sub of drop.subcategorias ?? []) {
+        const key = normalizeLabel(sub.label)
+        if (subKeyIndex.has(key)) {
+          subcategoriaIdRemap.set(`${drop.id}::${sub.id}`, subKeyIndex.get(key))
+        } else {
+          let newId = sub.id
+          if (usedIds.has(newId)) newId = `${drop.id}-${newId}`
+          subcategorias.push({ id: newId, label: sub.label })
+          usedIds.add(newId)
+          subKeyIndex.set(key, newId)
+          subcategoriaIdRemap.set(`${drop.id}::${sub.id}`, newId)
+        }
+      }
+    }
+
+    const tipos = Array.from(new Set([...(keep.tipos ?? []), ...drops.flatMap((d) => d.tipos ?? [])]))
+    const dropIds = new Set(drops.map((d) => d.id))
+    const affected = transactions.filter((t) => dropIds.has(t.categoriaId))
+
+    if (
+      !confirm(
+        `Mesclar ${group.length} categorias "${keep.label}" numa só? ${affected.length} lançamento(s) serão movidos para a categoria que ficar. Essa ação não pode ser desfeita.`,
+      )
+    )
+      return
+
+    await upsertCategory({ ...keep, subcategorias, tipos })
+    if (affected.length > 0) {
+      await bulkUpsertTransactions(
+        affected.map((t) => ({
+          id: t.id,
+          categoriaId: keep.id,
+          subcategoriaId: t.subcategoriaId
+            ? (subcategoriaIdRemap.get(`${t.categoriaId}::${t.subcategoriaId}`) ?? null)
+            : t.subcategoriaId,
+        })),
+      )
+    }
+    for (const drop of drops) await deleteCategory(drop.id)
+  }
 
   async function handleAddCategory(e) {
     e.preventDefault()
@@ -99,6 +174,37 @@ export default function Categories() {
           todos os lançamentos que já usam essa categoria — não precisa editar um por um.
         </p>
       </div>
+
+      {duplicateGroups.length > 0 && (
+        <Card title="Categorias duplicadas">
+          <p className="mb-3 text-xs" style={{ color: 'var(--text-muted)' }}>
+            Essas categorias têm o mesmo nome (geralmente acontece ao renomear uma categoria pra um
+            nome que já existia). Mesclar junta as subcategorias das duas numa lista só e move os
+            lançamentos pra ficar tudo numa categoria única.
+          </p>
+          <div className="flex flex-col gap-2">
+            {duplicateGroups.map((group) => (
+              <div
+                key={group.map((c) => c.id).join('|')}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm"
+                style={{ borderColor: 'var(--status-warning)' }}
+              >
+                <span>
+                  <strong>{group[0].label}</strong> aparece {group.length} vezes (
+                  {group.map((c) => `${(c.subcategorias ?? []).length} subcategoria(s)`).join(' + ')})
+                </span>
+                <button
+                  onClick={() => handleMerge(group)}
+                  className="rounded-md px-3 py-1.5 text-xs font-medium text-white"
+                  style={{ background: 'var(--series-1)' }}
+                >
+                  Mesclar em uma só
+                </button>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       <Card title="Nova categoria">
         <form onSubmit={handleAddCategory} className="flex flex-wrap items-center gap-2">
