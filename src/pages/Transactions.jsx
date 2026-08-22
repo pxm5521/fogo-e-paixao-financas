@@ -5,7 +5,7 @@ import ColumnFilter from '../components/ColumnFilter'
 import TransactionFormModal from '../components/TransactionFormModal'
 import { useTransactions, useCategories } from '../hooks/useFirestoreData'
 import { updateTransaction, deleteTransaction } from '../lib/firestoreApi'
-import { buildOptions } from '../lib/filterOptions'
+import { buildCascadingOptions } from '../lib/filterOptions'
 import { distinctEvents } from '../lib/analytics'
 import { formatCurrency, formatDate } from '../lib/format'
 
@@ -51,31 +51,35 @@ export default function Transactions() {
     return `${t.categoriaId ?? NONE}::${t.subcategoriaId}`
   }
 
-  // Opções de cada dropdown vêm de todos os lançamentos (não só dos já
-  // filtrados por outras colunas) — assim a lista não fica pulando de
-  // tamanho conforme você filtra em cascata.
-  const filterOptions = useMemo(
-    () => ({
-      data: buildOptions(transactions, (t) => t.data, { labelFn: (t) => formatDate(t.data) }),
-      quem: buildOptions(transactions, (t) => t.quem || NONE, { labelFn: (t) => t.quem || 'Sem quem' }),
-      motivo: buildOptions(transactions, (t) => motivoFor(t) || NONE, {
-        labelFn: (t) => motivoFor(t) || 'Sem motivo',
-      }),
-      categoria: buildOptions(transactions, (t) => t.categoriaId ?? NONE, {
+  // Cada coluna considera os outros filtros já ativos (cascata): marcar uma
+  // Categoria já estreita a lista de Subcategoria (e vice-versa, e o mesmo
+  // vale entre todas as colunas).
+  const filterFields = useMemo(
+    () => [
+      { key: 'data', keyFn: (t) => t.data, labelFn: (t) => formatDate(t.data) },
+      { key: 'quem', keyFn: (t) => t.quem || NONE, labelFn: (t) => t.quem || 'Sem quem' },
+      { key: 'motivo', keyFn: (t) => motivoFor(t) || NONE, labelFn: (t) => motivoFor(t) || 'Sem motivo' },
+      {
+        key: 'categoria',
+        keyFn: (t) => t.categoriaId ?? NONE,
         labelFn: (t) => (t.categoriaId ? categoryLabelFor(t) : 'Sem categoria'),
-      }),
-      subcategoria: buildOptions(
-        transactions.filter((t) => t.subcategoriaId),
-        subcategoriaKeyFor,
-        { labelFn: (t) => `${subcategoryLabelFor(t)} — ${categoryLabelFor(t)}` },
-      ),
-      evento: buildOptions(transactions, (t) => t.evento || NONE, {
-        labelFn: (t) => t.evento || 'Sem evento',
-      }),
-      valor: buildOptions(transactions, (t) => t.valor, { labelFn: (t) => formatCurrency(t.valor), sort: 'numeric' }),
-    }),
+      },
+      {
+        key: 'subcategoria',
+        keyFn: subcategoriaKeyFor,
+        labelFn: (t) => `${subcategoryLabelFor(t)} — ${categoryLabelFor(t)}`,
+        eligible: (t) => Boolean(t.subcategoriaId),
+      },
+      { key: 'evento', keyFn: (t) => t.evento || NONE, labelFn: (t) => t.evento || 'Sem evento' },
+      { key: 'valor', keyFn: (t) => t.valor, labelFn: (t) => formatCurrency(t.valor), sort: 'numeric' },
+    ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [transactions, categories],
+    [categories],
+  )
+
+  const filterOptions = useMemo(
+    () => buildCascadingOptions(transactions, filters, filterFields),
+    [transactions, filters, filterFields],
   )
 
   const filtered = useMemo(() => {
