@@ -1,11 +1,13 @@
 import { toMonthKey } from './format'
 
-export function filterTransactions(transactions, { from, to, evento, categoriaId } = {}) {
+export function filterTransactions(transactions, { from, to, evento, categoriaId, anos, meses } = {}) {
   return transactions.filter((t) => {
     if (from && t.data < from) return false
     if (to && t.data > to) return false
     if (evento && t.evento !== evento) return false
     if (categoriaId && t.categoriaId !== categoriaId) return false
+    if (anos && anos.length && !anos.includes(Number((t.data || '').slice(0, 4)))) return false
+    if (meses && meses.length && !meses.includes(Number((t.data || '').slice(5, 7)))) return false
     return true
   })
 }

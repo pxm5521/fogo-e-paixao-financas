@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import Card from '../components/Card'
+import ColumnFilter from '../components/ColumnFilter'
 import DateInput from '../components/DateInput'
 import StatCard from '../components/StatCard'
 import MonthlyBarChart from '../components/charts/MonthlyBarChart'
@@ -17,6 +18,7 @@ import {
   categoryYearRow,
   rendimentoMensalPivot,
 } from '../lib/analytics'
+import { buildCascadingOptions } from '../lib/filterOptions'
 import { formatCurrency } from '../lib/format'
 
 const CARNAVAIS = ['Carnaval 2023', 'Carnaval 2024', 'Carnaval 2025', 'Carnaval 2026', 'Carnaval 2027']
@@ -31,11 +33,48 @@ export default function Dashboard() {
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
   const [evento, setEvento] = useState('')
+  const [filtroAno, setFiltroAno] = useState([])
+  const [filtroMes, setFiltroMes] = useState([])
 
   const eventos = useMemo(() => distinctEvents(transactions), [transactions])
+
+  // Filtro de Ano/Mês, no mesmo padrão dos filtros de coluna de Lançamentos e
+  // A revisar (múltipla seleção, com busca) — sempre a partir do histórico
+  // inteiro (não só do que já está filtrado por De/Até/Evento), e um estreita
+  // as opções do outro (marcar um ano só mostra os meses que aquele ano tem).
+  const anoMesFields = useMemo(
+    () => [
+      {
+        key: 'ano',
+        keyFn: (t) => Number((t.data || '').slice(0, 4)),
+        labelFn: (t) => t.data.slice(0, 4),
+        sort: 'numeric',
+      },
+      {
+        key: 'mes',
+        keyFn: (t) => Number((t.data || '').slice(5, 7)),
+        labelFn: (t) => MESES[Number(t.data.slice(5, 7)) - 1],
+        sort: 'numeric',
+      },
+    ],
+    [],
+  )
+  const anoMesFilters = useMemo(() => ({ ano: filtroAno, mes: filtroMes }), [filtroAno, filtroMes])
+  const anoMesOptions = useMemo(
+    () => buildCascadingOptions(transactions, anoMesFilters, anoMesFields),
+    [transactions, anoMesFilters, anoMesFields],
+  )
+
   const filtered = useMemo(
-    () => filterTransactions(transactions, { from, to, evento: evento || undefined }),
-    [transactions, from, to, evento],
+    () =>
+      filterTransactions(transactions, {
+        from,
+        to,
+        evento: evento || undefined,
+        anos: filtroAno,
+        meses: filtroMes,
+      }),
+    [transactions, from, to, evento, filtroAno, filtroMes],
   )
 
   const t = totals(filtered)
@@ -105,12 +144,26 @@ export default function Dashboard() {
             </option>
           ))}
         </select>
-        {(from || to || evento) && (
+        <ColumnFilter
+          label="Ano"
+          options={anoMesOptions.ano}
+          selected={filtroAno}
+          onChange={setFiltroAno}
+        />
+        <ColumnFilter
+          label="Mês"
+          options={anoMesOptions.mes}
+          selected={filtroMes}
+          onChange={setFiltroMes}
+        />
+        {(from || to || evento || filtroAno.length > 0 || filtroMes.length > 0) && (
           <button
             onClick={() => {
               setFrom('')
               setTo('')
               setEvento('')
+              setFiltroAno([])
+              setFiltroMes([])
             }}
             className="text-sm font-medium"
             style={{ color: 'var(--series-2)' }}
