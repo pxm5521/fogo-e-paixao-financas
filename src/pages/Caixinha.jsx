@@ -44,6 +44,10 @@ export default function Caixinha() {
     [saldos],
   )
   const saldoAtual = saldosOrdenados[saldosOrdenados.length - 1]
+  const totalRendimento = useMemo(
+    () => resumoMensal.reduce((sum, linha) => sum + (linha.rendimento ?? 0), 0),
+    [resumoMensal],
+  )
 
   if (loadingMovimentos || loadingSaldos) {
     return <p style={{ color: 'var(--text-secondary)' }}>Carregando…</p>
@@ -59,13 +63,18 @@ export default function Caixinha() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           label={saldoAtual ? `Saldo atual (${MESES[saldoAtual.mes - 1]}/${saldoAtual.ano})` : 'Saldo atual'}
           value={saldoAtual ? saldoAtual.saldo : 0}
         />
         <StatCard label="Total de aportes" value={totalAportes} tone="good" />
         <StatCard label="Total de saques" value={totalSaques} />
+        <StatCard
+          label="Total de rendimento"
+          value={totalRendimento}
+          tone={totalRendimento >= 0 ? 'good' : 'critical'}
+        />
       </div>
 
       <Card title="Resumo mensal">
@@ -130,6 +139,26 @@ export default function Caixinha() {
                     </tr>
                   ))}
                 </tbody>
+                <tfoot>
+                  <tr className="border-t-2" style={{ borderColor: 'var(--border)' }}>
+                    <td className="py-1.5 pr-3 font-medium">TOTAL</td>
+                    <td className="py-1.5 pr-3 text-right font-medium tabular-nums whitespace-nowrap">
+                      <span style={{ color: 'var(--series-1)' }}>{formatCurrency(totalAportes)}</span>
+                    </td>
+                    <td className="py-1.5 pr-3 text-right font-medium tabular-nums whitespace-nowrap">
+                      <span style={{ color: 'var(--series-2)' }}>{formatCurrency(totalSaques)}</span>
+                    </td>
+                    <td className="py-1.5 pr-3 text-right">
+                      <span style={{ color: 'var(--text-muted)' }}>—</span>
+                    </td>
+                    <td
+                      className="py-1.5 pl-3 text-right font-semibold tabular-nums whitespace-nowrap"
+                      style={{ color: totalRendimento < 0 ? 'var(--series-2)' : 'var(--series-1)' }}
+                    >
+                      {formatCurrency(totalRendimento)}
+                    </td>
+                  </tr>
+                </tfoot>
               </table>
             </div>
           </>
