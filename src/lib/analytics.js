@@ -70,6 +70,92 @@ export function byCategory(transactions, tipo, categories) {
     .sort((a, b) => b.valor - a.valor)
 }
 
+// Tabela em 3 níveis (Categoria > Subcategoria > Motivo) com Despesa, Receita
+// e Total (receita - despesa) em cada nível — pensada pra tabela expansível
+// do Resumo, onde clicar na categoria abre as subcategorias e clicar na
+// subcategoria abre os motivos. Ordena tudo em ordem alfabética (pt-BR),
+// igual ao resto do site.
+export function categoryDrilldown(transactions, categories) {
+  const catMap = new Map(categories.map((c) => [c.id, c]))
+  const SEM_CATEGORIA = '__sem_categoria__'
+  const SEM_SUBCATEGORIA = '__sem_subcategoria__'
+
+  const cats = new Map() // categoriaId -> { id, label, despesa, receita, subs: Map }
+
+  function addValor(bucket, t) {
+    if (t.tipo === 'receita') bucket.receita += t.valor
+    else bucket.despesa += Math.abs(t.valor)
+  }
+
+  for (const t of transactions) {
+    const catId = t.categoriaId || SEM_CATEGORIA
+    if (!cats.has(catId)) {
+      cats.set(catId, {
+        id: catId,
+        label: catId === SEM_CATEGORIA ? 'Sem categoria' : catMap.get(catId)?.label || catId,
+        despesa: 0,
+        receita: 0,
+        subs: new Map(),
+      })
+    }
+    const cat = cats.get(catId)
+    addValor(cat, t)
+
+    const subId = t.subcategoriaId || SEM_SUBCATEGORIA
+    if (!cat.subs.has(subId)) {
+      const catDef = catMap.get(catId)
+      const subDef = catDef?.subcategorias?.find((s) => s.id === subId)
+      cat.subs.set(subId, {
+        id: subId,
+        label: subId === SEM_SUBCATEGORIA ? 'Sem subcategoria' : subDef?.label || subId,
+        despesa: 0,
+        receita: 0,
+        motivos: new Map(),
+      })
+    }
+    const sub = cat.subs.get(subId)
+    addValor(sub, t)
+
+    const motivoLabel = t.motivoOriginal || t.descricao || ''
+    const motivoKey = motivoLabel || '__sem_motivo__'
+    if (!sub.motivos.has(motivoKey)) {
+      sub.motivos.set(motivoKey, { label: motivoLabel || 'Sem motivo', despesa: 0, receita: 0 })
+    }
+    addValor(sub.motivos.get(motivoKey), t)
+  }
+
+  const byLabel = (a, b) => a.label.localeCompare(b.label, 'pt-BR', { sensitivity: 'base' })
+
+  const rows = Array.from(cats.values())
+    .map((cat) => ({
+      id: cat.id,
+      label: cat.label,
+      despesa: cat.despesa,
+      receita: cat.receita,
+      total: cat.receita - cat.despesa,
+      subcategorias: Array.from(cat.subs.values())
+        .map((sub) => ({
+          id: sub.id,
+          label: sub.label,
+          despesa: sub.despesa,
+          receita: sub.receita,
+          total: sub.receita - sub.despesa,
+          motivos: Array.from(sub.motivos.values())
+            .map((m) => ({ ...m, total: m.receita - m.despesa }))
+            .sort(byLabel),
+        }))
+        .sort(byLabel),
+    }))
+    .sort(byLabel)
+
+  const totals = rows.reduce(
+    (acc, r) => ({ despesa: acc.despesa + r.despesa, receita: acc.receita + r.receita }),
+    { despesa: 0, receita: 0 },
+  )
+
+  return { rows, totals: { ...totals, total: totals.receita - totals.despesa } }
+}
+
 export function distinctEvents(transactions) {
   const set = new Set()
   for (const t of transactions) if (t.evento) set.add(t.evento)

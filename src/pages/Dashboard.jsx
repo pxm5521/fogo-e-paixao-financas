@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import Card from '../components/Card'
 import ColumnFilter from '../components/ColumnFilter'
 import DateInput from '../components/DateInput'
@@ -17,6 +17,7 @@ import {
   subcategoriaPivot,
   categoryYearRow,
   rendimentoMensalPivot,
+  categoryDrilldown,
 } from '../lib/analytics'
 import { buildCascadingOptions } from '../lib/filterOptions'
 import { formatCurrency } from '../lib/format'
@@ -83,6 +84,29 @@ export default function Dashboard() {
   const balance = accumulatedBalance(filtered, saldoInicial)
   const despesasPorCategoria = byCategory(filtered, 'despesa', categories)
   const receitasPorCategoria = byCategory(filtered, 'receita', categories)
+  // Tabela expansível Categoria > Subcategoria > Motivo — segue os mesmos
+  // filtros de período/evento/ano/mês acima (não é comparação de temporada).
+  const drilldown = useMemo(() => categoryDrilldown(filtered, categories), [filtered, categories])
+  const [expandedCats, setExpandedCats] = useState(new Set())
+  const [expandedSubs, setExpandedSubs] = useState(new Set())
+
+  function toggleCat(id) {
+    setExpandedCats((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function toggleSub(key) {
+    setExpandedSubs((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
   // Comparativo entre temporadas: sempre com todos os lançamentos (não usa
   // o período/evento filtrado acima), porque o objetivo é comparar as
   // temporadas inteiras entre si.
@@ -203,6 +227,160 @@ export default function Dashboard() {
           )}
         </Card>
       </div>
+
+      <Card title="Detalhamento por categoria">
+        {drilldown.rows.length === 0 ? (
+          <EmptyState />
+        ) : (
+          <>
+            <p className="mb-3 text-xs" style={{ color: 'var(--text-muted)' }}>
+              Segue o filtro de período/evento/ano/mês acima. Clique numa categoria para ver as
+              subcategorias, e numa subcategoria para ver os motivos.
+            </p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr style={{ color: 'var(--text-muted)' }} className="text-xs uppercase">
+                    <th className="py-1.5 pr-3">Categoria</th>
+                    <th className="py-1.5 pr-3 text-right whitespace-nowrap">Despesa</th>
+                    <th className="py-1.5 pr-3 text-right whitespace-nowrap">Receita</th>
+                    <th className="py-1.5 pl-3 text-right whitespace-nowrap">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {drilldown.rows.map((cat) => {
+                    const catOpen = expandedCats.has(cat.id)
+                    return (
+                      <Fragment key={cat.id}>
+                        <tr
+                          onClick={() => toggleCat(cat.id)}
+                          className="cursor-pointer border-t"
+                          style={{ borderColor: 'var(--gridline)' }}
+                        >
+                          <td className="py-1.5 pr-3 font-medium">
+                            <span className="mr-1.5 inline-block w-3 text-xs" style={{ color: 'var(--text-muted)' }}>
+                              {catOpen ? '▾' : '▸'}
+                            </span>
+                            {cat.label}
+                          </td>
+                          <td className="py-1.5 pr-3 text-right tabular-nums whitespace-nowrap">
+                            {cat.despesa ? formatCurrency(cat.despesa) : <span style={{ color: 'var(--text-muted)' }}>—</span>}
+                          </td>
+                          <td className="py-1.5 pr-3 text-right tabular-nums whitespace-nowrap">
+                            {cat.receita ? formatCurrency(cat.receita) : <span style={{ color: 'var(--text-muted)' }}>—</span>}
+                          </td>
+                          <td
+                            className="py-1.5 pl-3 text-right font-medium tabular-nums whitespace-nowrap"
+                            style={{ color: cat.total < 0 ? 'var(--series-2)' : 'var(--series-1)' }}
+                          >
+                            {formatCurrency(cat.total)}
+                          </td>
+                        </tr>
+                        {catOpen &&
+                          cat.subcategorias.map((sub) => {
+                            const subKey = `${cat.id}::${sub.id}`
+                            const subOpen = expandedSubs.has(subKey)
+                            return (
+                              <Fragment key={subKey}>
+                                <tr
+                                  onClick={() => toggleSub(subKey)}
+                                  className="cursor-pointer border-t"
+                                  style={{ borderColor: 'var(--gridline)' }}
+                                >
+                                  <td className="py-1.5 pr-3 pl-6">
+                                    <span
+                                      className="mr-1.5 inline-block w-3 text-xs"
+                                      style={{ color: 'var(--text-muted)' }}
+                                    >
+                                      {subOpen ? '▾' : '▸'}
+                                    </span>
+                                    {sub.label}
+                                  </td>
+                                  <td className="py-1.5 pr-3 text-right tabular-nums whitespace-nowrap">
+                                    {sub.despesa ? (
+                                      formatCurrency(sub.despesa)
+                                    ) : (
+                                      <span style={{ color: 'var(--text-muted)' }}>—</span>
+                                    )}
+                                  </td>
+                                  <td className="py-1.5 pr-3 text-right tabular-nums whitespace-nowrap">
+                                    {sub.receita ? (
+                                      formatCurrency(sub.receita)
+                                    ) : (
+                                      <span style={{ color: 'var(--text-muted)' }}>—</span>
+                                    )}
+                                  </td>
+                                  <td
+                                    className="py-1.5 pl-3 text-right tabular-nums whitespace-nowrap"
+                                    style={{ color: sub.total < 0 ? 'var(--series-2)' : 'var(--series-1)' }}
+                                  >
+                                    {formatCurrency(sub.total)}
+                                  </td>
+                                </tr>
+                                {subOpen &&
+                                  sub.motivos.map((motivo, i) => (
+                                    <tr
+                                      key={`${subKey}::${i}`}
+                                      className="border-t"
+                                      style={{ borderColor: 'var(--gridline)' }}
+                                    >
+                                      <td
+                                        className="py-1.5 pr-3 pl-12 text-xs"
+                                        style={{ color: 'var(--text-secondary)' }}
+                                      >
+                                        {motivo.label}
+                                      </td>
+                                      <td className="py-1.5 pr-3 text-right text-xs tabular-nums whitespace-nowrap">
+                                        {motivo.despesa ? (
+                                          formatCurrency(motivo.despesa)
+                                        ) : (
+                                          <span style={{ color: 'var(--text-muted)' }}>—</span>
+                                        )}
+                                      </td>
+                                      <td className="py-1.5 pr-3 text-right text-xs tabular-nums whitespace-nowrap">
+                                        {motivo.receita ? (
+                                          formatCurrency(motivo.receita)
+                                        ) : (
+                                          <span style={{ color: 'var(--text-muted)' }}>—</span>
+                                        )}
+                                      </td>
+                                      <td
+                                        className="py-1.5 pl-3 text-right text-xs tabular-nums whitespace-nowrap"
+                                        style={{ color: motivo.total < 0 ? 'var(--series-2)' : 'var(--series-1)' }}
+                                      >
+                                        {formatCurrency(motivo.total)}
+                                      </td>
+                                    </tr>
+                                  ))}
+                              </Fragment>
+                            )
+                          })}
+                      </Fragment>
+                    )
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-2" style={{ borderColor: 'var(--border)' }}>
+                    <td className="py-1.5 pr-3 font-medium">TOTAL</td>
+                    <td className="py-1.5 pr-3 text-right font-medium tabular-nums whitespace-nowrap">
+                      {formatCurrency(drilldown.totals.despesa)}
+                    </td>
+                    <td className="py-1.5 pr-3 text-right font-medium tabular-nums whitespace-nowrap">
+                      {formatCurrency(drilldown.totals.receita)}
+                    </td>
+                    <td
+                      className="py-1.5 pl-3 text-right font-semibold tabular-nums whitespace-nowrap"
+                      style={{ color: drilldown.totals.total < 0 ? 'var(--series-2)' : 'var(--series-1)' }}
+                    >
+                      {formatCurrency(drilldown.totals.total)}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </>
+        )}
+      </Card>
 
       <Card title="Despesas por temporada — Carnaval 2023 a 2027">
         {carnavalPivot.columns.length === 0 ? (
