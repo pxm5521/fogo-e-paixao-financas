@@ -156,6 +156,98 @@ export function categoryDrilldown(transactions, categories) {
   return { rows, totals: { ...totals, total: totals.receita - totals.despesa } }
 }
 
+// Igual a `categoryDrilldown` (Categoria > Subcategoria > Motivo, mesma
+// ordenação alfabética), mas com o ano do lançamento como coluna em vez de
+// Despesa/Receita: cada coluna mostra o líquido (receita - despesa, com
+// sinal) daquele ano. Uma coluna Total no final soma todos os anos — igual
+// ao "Total" de `categoryDrilldown`.
+export function categoryYearDrilldown(transactions, categories) {
+  const catMap = new Map(categories.map((c) => [c.id, c]))
+  const SEM_CATEGORIA = '__sem_categoria__'
+  const SEM_SUBCATEGORIA = '__sem_subcategoria__'
+
+  const cats = new Map()
+  const anosSet = new Set()
+
+  function addValor(bucket, t, ano) {
+    const v = t.tipo === 'receita' ? t.valor : -Math.abs(t.valor)
+    bucket.anos[ano] = (bucket.anos[ano] ?? 0) + v
+    bucket.total += v
+  }
+
+  for (const t of transactions) {
+    const ano = Number((t.data || '').slice(0, 4))
+    if (!ano) continue
+    anosSet.add(ano)
+
+    const catId = t.categoriaId || SEM_CATEGORIA
+    if (!cats.has(catId)) {
+      cats.set(catId, {
+        id: catId,
+        label: catId === SEM_CATEGORIA ? 'Sem categoria' : catMap.get(catId)?.label || catId,
+        anos: {},
+        total: 0,
+        subs: new Map(),
+      })
+    }
+    const cat = cats.get(catId)
+    addValor(cat, t, ano)
+
+    const subId = t.subcategoriaId || SEM_SUBCATEGORIA
+    if (!cat.subs.has(subId)) {
+      const catDef = catMap.get(catId)
+      const subDef = catDef?.subcategorias?.find((s) => s.id === subId)
+      cat.subs.set(subId, {
+        id: subId,
+        label: subId === SEM_SUBCATEGORIA ? 'Sem subcategoria' : subDef?.label || subId,
+        anos: {},
+        total: 0,
+        motivos: new Map(),
+      })
+    }
+    const sub = cat.subs.get(subId)
+    addValor(sub, t, ano)
+
+    const motivoLabel = t.motivoOriginal || t.descricao || ''
+    const motivoKey = motivoLabel || '__sem_motivo__'
+    if (!sub.motivos.has(motivoKey)) {
+      sub.motivos.set(motivoKey, { label: motivoLabel || 'Sem motivo', anos: {}, total: 0 })
+    }
+    addValor(sub.motivos.get(motivoKey), t, ano)
+  }
+
+  const anos = Array.from(anosSet).sort((a, b) => a - b)
+  const byLabel = (a, b) => a.label.localeCompare(b.label, 'pt-BR', { sensitivity: 'base' })
+
+  const rows = Array.from(cats.values())
+    .map((cat) => ({
+      id: cat.id,
+      label: cat.label,
+      anos: cat.anos,
+      total: cat.total,
+      subcategorias: Array.from(cat.subs.values())
+        .map((sub) => ({
+          id: sub.id,
+          label: sub.label,
+          anos: sub.anos,
+          total: sub.total,
+          motivos: Array.from(sub.motivos.values()).sort(byLabel),
+        }))
+        .sort(byLabel),
+    }))
+    .sort(byLabel)
+
+  const totalPorAno = {}
+  for (const ano of anos) totalPorAno[ano] = 0
+  let totalGeral = 0
+  for (const r of rows) {
+    for (const ano of anos) totalPorAno[ano] += r.anos[ano] ?? 0
+    totalGeral += r.total
+  }
+
+  return { anos, rows, totalPorAno, totalGeral }
+}
+
 export function distinctEvents(transactions) {
   const set = new Set()
   for (const t of transactions) if (t.evento) set.add(t.evento)

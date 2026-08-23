@@ -18,6 +18,7 @@ import {
   categoryYearRow,
   rendimentoMensalPivot,
   categoryDrilldown,
+  categoryYearDrilldown,
   blocoShowLucroPorTemporada,
 } from '../lib/analytics'
 import { buildCascadingOptions } from '../lib/filterOptions'
@@ -102,6 +103,31 @@ export default function Dashboard() {
 
   function toggleSub(key) {
     setExpandedSubs((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+
+  // Mesma árvore Categoria > Subcategoria > Motivo, mas com o ano como
+  // coluna em vez de Despesa/Receita — mesmo filtro de período/evento/ano/mês
+  // acima, e estado de expandir/recolher independente da tabela anterior.
+  const yearDrilldown = useMemo(() => categoryYearDrilldown(filtered, categories), [filtered, categories])
+  const [expandedYearCats, setExpandedYearCats] = useState(new Set())
+  const [expandedYearSubs, setExpandedYearSubs] = useState(new Set())
+
+  function toggleYearCat(id) {
+    setExpandedYearCats((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function toggleYearSub(key) {
+    setExpandedYearSubs((prev) => {
       const next = new Set(prev)
       if (next.has(key)) next.delete(key)
       else next.add(key)
@@ -378,6 +404,178 @@ export default function Dashboard() {
                       style={{ color: drilldown.totals.total < 0 ? 'var(--series-2)' : 'var(--series-1)' }}
                     >
                       {formatCurrency(drilldown.totals.total)}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </>
+        )}
+      </Card>
+
+      <Card title="Detalhamento por categoria e ano">
+        {yearDrilldown.rows.length === 0 ? (
+          <EmptyState />
+        ) : (
+          <>
+            <p className="mb-3 text-xs" style={{ color: 'var(--text-muted)' }}>
+              Segue o filtro de período/evento/ano/mês acima. Cada coluna é o líquido (receita menos
+              despesa, com sinal) daquele ano. Clique numa categoria para ver as subcategorias, e numa
+              subcategoria para ver os motivos.
+            </p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr style={{ color: 'var(--text-muted)' }} className="text-xs uppercase">
+                    <th className="py-1.5 pr-3">Categoria</th>
+                    {yearDrilldown.anos.map((ano) => (
+                      <th key={ano} className="py-1.5 pr-3 text-right whitespace-nowrap">
+                        {ano}
+                      </th>
+                    ))}
+                    <th className="py-1.5 pl-3 text-right whitespace-nowrap">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {yearDrilldown.rows.map((cat) => {
+                    const catOpen = expandedYearCats.has(cat.id)
+                    return (
+                      <Fragment key={cat.id}>
+                        <tr
+                          onClick={() => toggleYearCat(cat.id)}
+                          className="cursor-pointer border-t"
+                          style={{ borderColor: 'var(--gridline)' }}
+                        >
+                          <td className="py-1.5 pr-3 font-medium">
+                            <span className="mr-1.5 inline-block w-3 text-xs" style={{ color: 'var(--text-muted)' }}>
+                              {catOpen ? '▾' : '▸'}
+                            </span>
+                            {cat.label}
+                          </td>
+                          {yearDrilldown.anos.map((ano) => {
+                            const v = cat.anos[ano]
+                            return (
+                              <td key={ano} className="py-1.5 pr-3 text-right tabular-nums whitespace-nowrap">
+                                {v ? (
+                                  <span style={{ color: v < 0 ? 'var(--series-2)' : undefined }}>
+                                    {formatCurrency(v)}
+                                  </span>
+                                ) : (
+                                  <span style={{ color: 'var(--text-muted)' }}>—</span>
+                                )}
+                              </td>
+                            )
+                          })}
+                          <td
+                            className="py-1.5 pl-3 text-right font-medium tabular-nums whitespace-nowrap"
+                            style={{ color: cat.total < 0 ? 'var(--series-2)' : 'var(--series-1)' }}
+                          >
+                            {formatCurrency(cat.total)}
+                          </td>
+                        </tr>
+                        {catOpen &&
+                          cat.subcategorias.map((sub) => {
+                            const subKey = `${cat.id}::${sub.id}`
+                            const subOpen = expandedYearSubs.has(subKey)
+                            return (
+                              <Fragment key={subKey}>
+                                <tr
+                                  onClick={() => toggleYearSub(subKey)}
+                                  className="cursor-pointer border-t"
+                                  style={{ borderColor: 'var(--gridline)' }}
+                                >
+                                  <td className="py-1.5 pr-3 pl-6">
+                                    <span
+                                      className="mr-1.5 inline-block w-3 text-xs"
+                                      style={{ color: 'var(--text-muted)' }}
+                                    >
+                                      {subOpen ? '▾' : '▸'}
+                                    </span>
+                                    {sub.label}
+                                  </td>
+                                  {yearDrilldown.anos.map((ano) => {
+                                    const v = sub.anos[ano]
+                                    return (
+                                      <td key={ano} className="py-1.5 pr-3 text-right tabular-nums whitespace-nowrap">
+                                        {v ? (
+                                          <span style={{ color: v < 0 ? 'var(--series-2)' : undefined }}>
+                                            {formatCurrency(v)}
+                                          </span>
+                                        ) : (
+                                          <span style={{ color: 'var(--text-muted)' }}>—</span>
+                                        )}
+                                      </td>
+                                    )
+                                  })}
+                                  <td
+                                    className="py-1.5 pl-3 text-right tabular-nums whitespace-nowrap"
+                                    style={{ color: sub.total < 0 ? 'var(--series-2)' : 'var(--series-1)' }}
+                                  >
+                                    {formatCurrency(sub.total)}
+                                  </td>
+                                </tr>
+                                {subOpen &&
+                                  sub.motivos.map((motivo, i) => (
+                                    <tr
+                                      key={`${subKey}::${i}`}
+                                      className="border-t"
+                                      style={{ borderColor: 'var(--gridline)' }}
+                                    >
+                                      <td
+                                        className="py-1.5 pr-3 pl-12 text-xs"
+                                        style={{ color: 'var(--text-secondary)' }}
+                                      >
+                                        {motivo.label}
+                                      </td>
+                                      {yearDrilldown.anos.map((ano) => {
+                                        const v = motivo.anos[ano]
+                                        return (
+                                          <td
+                                            key={ano}
+                                            className="py-1.5 pr-3 text-right text-xs tabular-nums whitespace-nowrap"
+                                          >
+                                            {v ? (
+                                              <span style={{ color: v < 0 ? 'var(--series-2)' : undefined }}>
+                                                {formatCurrency(v)}
+                                              </span>
+                                            ) : (
+                                              <span style={{ color: 'var(--text-muted)' }}>—</span>
+                                            )}
+                                          </td>
+                                        )
+                                      })}
+                                      <td
+                                        className="py-1.5 pl-3 text-right text-xs tabular-nums whitespace-nowrap"
+                                        style={{ color: motivo.total < 0 ? 'var(--series-2)' : 'var(--series-1)' }}
+                                      >
+                                        {formatCurrency(motivo.total)}
+                                      </td>
+                                    </tr>
+                                  ))}
+                              </Fragment>
+                            )
+                          })}
+                      </Fragment>
+                    )
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-2" style={{ borderColor: 'var(--border)' }}>
+                    <td className="py-1.5 pr-3 font-medium">TOTAL</td>
+                    {yearDrilldown.anos.map((ano) => (
+                      <td
+                        key={ano}
+                        className="py-1.5 pr-3 text-right font-medium tabular-nums whitespace-nowrap"
+                        style={{ color: yearDrilldown.totalPorAno[ano] < 0 ? 'var(--series-2)' : undefined }}
+                      >
+                        {formatCurrency(yearDrilldown.totalPorAno[ano])}
+                      </td>
+                    ))}
+                    <td
+                      className="py-1.5 pl-3 text-right font-semibold tabular-nums whitespace-nowrap"
+                      style={{ color: yearDrilldown.totalGeral < 0 ? 'var(--series-2)' : 'var(--series-1)' }}
+                    >
+                      {formatCurrency(yearDrilldown.totalGeral)}
                     </td>
                   </tr>
                 </tfoot>
