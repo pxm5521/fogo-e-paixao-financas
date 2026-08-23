@@ -34,6 +34,13 @@ export default function MonthlyBarChart({ data }) {
         <Legend wrapperStyle={{ fontSize: 12, color: 'var(--text-secondary)' }} />
         <Bar dataKey="receitas" name="Receitas" fill="var(--series-1)" radius={[3, 3, 0, 0]} maxBarSize={28} />
         <Bar dataKey="despesas" name="Despesas" fill="var(--series-2)" radius={[3, 3, 0, 0]} maxBarSize={28} />
+        <Bar
+          dataKey="investimentoRendimento"
+          name="Investimento (Rendimento)"
+          fill="var(--series-3)"
+          radius={[3, 3, 0, 0]}
+          maxBarSize={28}
+        />
       </BarChart>
     </ResponsiveContainer>
   )

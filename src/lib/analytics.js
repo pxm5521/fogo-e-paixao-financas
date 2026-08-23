@@ -22,14 +22,24 @@ export function totals(transactions) {
   return { receitas, despesas, saldo: receitas - despesas }
 }
 
+// Lançamentos da categoria Investimento com Motivo "Rendimento" não entram
+// como receita nem despesa aqui — viram uma série própria
+// (`investimentoRendimento`, mantendo o sinal: um mês de rendimento negativo
+// fica negativo), pra não misturar rendimento de aplicação com o
+// receita/despesa operacional do bloco no gráfico mensal.
+function isInvestimentoRendimento(t) {
+  return t.categoriaId === 'investimento' && normalizeLabel(t.motivoOriginal || t.descricao || '') === 'rendimento'
+}
+
 export function monthlySeries(transactions) {
   const map = new Map()
   for (const t of transactions) {
     const key = toMonthKey(t.data)
     if (!key) continue
-    if (!map.has(key)) map.set(key, { mes: key, receitas: 0, despesas: 0 })
+    if (!map.has(key)) map.set(key, { mes: key, receitas: 0, despesas: 0, investimentoRendimento: 0 })
     const bucket = map.get(key)
-    if (t.tipo === 'receita') bucket.receitas += t.valor
+    if (isInvestimentoRendimento(t)) bucket.investimentoRendimento += t.valor
+    else if (t.tipo === 'receita') bucket.receitas += t.valor
     else bucket.despesas += Math.abs(t.valor)
   }
   return Array.from(map.values()).sort((a, b) => a.mes.localeCompare(b.mes))
@@ -39,7 +49,9 @@ export function accumulatedBalance(transactions, saldoInicial = 0) {
   const series = monthlySeries(transactions)
   let acumulado = saldoInicial
   return series.map((m) => {
-    acumulado += m.receitas - m.despesas
+    // O rendimento de investimento continua contando no saldo real da conta
+    // — só não entra nas barras de receita/despesa do gráfico mensal.
+    acumulado += m.receitas - m.despesas + m.investimentoRendimento
     return { mes: m.mes, saldo: acumulado }
   })
 }
