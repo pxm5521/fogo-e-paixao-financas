@@ -1,7 +1,10 @@
 // Monta a lista de opções (value/label únicos, ordenados) para os dropdowns
 // de filtro por coluna (ColumnFilter). `keyFn` extrai o valor de cada linha;
 // `labelFn` (opcional) formata o rótulo mostrado — por padrão usa o próprio
-// valor. Ordena por `sort`: 'alpha' (padrão, pt-BR) ou 'numeric'.
+// valor. Ordena por `sort`: 'alpha' (padrão, pt-BR, pelo texto exibido),
+// 'numeric' (pelo valor, numérico) ou 'value' (pelo valor bruto como texto —
+// para datas ISO "AAAA-MM-DD", por exemplo, isso dá ordem cronológica, o que
+// ordenar pelo rótulo "DD/MM/AAAA" formatado NÃO dá).
 export function buildOptions(rows, keyFn, { labelFn, sort = 'alpha' } = {}) {
   const byValue = new Map()
   for (const row of rows) {
@@ -14,6 +17,8 @@ export function buildOptions(rows, keyFn, { labelFn, sort = 'alpha' } = {}) {
   const options = Array.from(byValue, ([value, label]) => ({ value, label }))
   if (sort === 'numeric') {
     options.sort((a, b) => Number(a.value) - Number(b.value))
+  } else if (sort === 'value') {
+    options.sort((a, b) => (a.value < b.value ? -1 : a.value > b.value ? 1 : 0))
   } else {
     options.sort((a, b) => a.label.localeCompare(b.label, 'pt-BR', { sensitivity: 'base' }))
   }

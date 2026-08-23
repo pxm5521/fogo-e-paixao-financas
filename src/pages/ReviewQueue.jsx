@@ -52,7 +52,7 @@ export default function ReviewQueue() {
   // vale entre todas as colunas).
   const filterFields = useMemo(
     () => [
-      { key: 'data', keyFn: (t) => t.data, labelFn: (t) => formatDate(t.data) },
+      { key: 'data', keyFn: (t) => t.data, labelFn: (t) => formatDate(t.data), sort: 'value' },
       { key: 'quem', keyFn: (t) => t.quem || NONE, labelFn: (t) => t.quem || 'Sem quem' },
       { key: 'motivo', keyFn: (t) => motivoFor(t) || NONE, labelFn: (t) => motivoFor(t) || 'Sem motivo' },
       {
@@ -231,11 +231,18 @@ export default function ReviewQueue() {
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div className="min-w-0">
                 <p className="text-sm font-medium">{t.quem || '(sem quem)'}</p>
-                {motivoFor(t) && (
-                  <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-                    {motivoFor(t)}
-                  </p>
-                )}
+                <input
+                  key={t.id}
+                  type="text"
+                  placeholder="Motivo (descrição detalhada)"
+                  defaultValue={motivoFor(t)}
+                  onBlur={(e) => {
+                    const value = e.target.value.trim()
+                    if (value !== motivoFor(t)) handleChange(t, { motivoOriginal: value || null })
+                  }}
+                  className="-ml-0.5 w-full rounded-md border border-transparent bg-transparent px-0.5 py-0.5 text-xs hover:border-[var(--border)] focus:border-[var(--border)] focus:outline-none"
+                  style={{ color: 'var(--text-secondary)' }}
+                />
                 <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
                   {formatDate(t.data)} ·{' '}
                   <span style={{ color: t.tipo === 'receita' ? 'var(--series-1)' : 'var(--series-2)' }}>

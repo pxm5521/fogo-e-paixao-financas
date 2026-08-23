@@ -57,7 +57,7 @@ export default function Transactions() {
   // vale entre todas as colunas).
   const filterFields = useMemo(
     () => [
-      { key: 'data', keyFn: (t) => t.data, labelFn: (t) => formatDate(t.data) },
+      { key: 'data', keyFn: (t) => t.data, labelFn: (t) => formatDate(t.data), sort: 'value' },
       { key: 'quem', keyFn: (t) => t.quem || NONE, labelFn: (t) => t.quem || 'Sem quem' },
       { key: 'motivo', keyFn: (t) => motivoFor(t) || NONE, labelFn: (t) => motivoFor(t) || 'Sem motivo' },
       {
