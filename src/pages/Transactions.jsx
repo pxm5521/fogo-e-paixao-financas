@@ -14,8 +14,19 @@ const selectClass = 'rounded-md border bg-transparent px-2.5 py-1.5 text-sm'
 const editInputClass = 'w-full rounded-md border bg-transparent px-2 py-1 text-xs'
 const NONE = '__none__'
 const EVENTOS_LIST_ID = 'lancamentos-eventos-list'
+const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
 
-const emptyFilters = { data: [], quem: [], motivo: [], categoria: [], subcategoria: [], evento: [], valor: [] }
+const emptyFilters = {
+  data: [],
+  ano: [],
+  mes: [],
+  quem: [],
+  motivo: [],
+  categoria: [],
+  subcategoria: [],
+  evento: [],
+  valor: [],
+}
 
 // "Quem" é a contraparte (pra quem você mandou ou de quem você recebeu);
 // "Motivo" é a descrição detalhada do lançamento. Vieram como colunas
@@ -58,6 +69,18 @@ export default function Transactions() {
   const filterFields = useMemo(
     () => [
       { key: 'data', keyFn: (t) => t.data, labelFn: (t) => formatDate(t.data), sort: 'value' },
+      {
+        key: 'ano',
+        keyFn: (t) => Number((t.data || '').slice(0, 4)),
+        labelFn: (t) => t.data.slice(0, 4),
+        sort: 'numeric',
+      },
+      {
+        key: 'mes',
+        keyFn: (t) => Number((t.data || '').slice(5, 7)),
+        labelFn: (t) => MESES[Number(t.data.slice(5, 7)) - 1],
+        sort: 'numeric',
+      },
       { key: 'quem', keyFn: (t) => t.quem || NONE, labelFn: (t) => t.quem || 'Sem quem' },
       { key: 'motivo', keyFn: (t) => motivoFor(t) || NONE, labelFn: (t) => motivoFor(t) || 'Sem motivo' },
       {
@@ -102,6 +125,8 @@ export default function Transactions() {
         if (!haystack.includes(term)) return false
       }
       if (filters.data.length && !filters.data.includes(t.data)) return false
+      if (filters.ano.length && !filters.ano.includes(Number((t.data || '').slice(0, 4)))) return false
+      if (filters.mes.length && !filters.mes.includes(Number((t.data || '').slice(5, 7)))) return false
       if (filters.quem.length && !filters.quem.includes(t.quem || NONE)) return false
       if (filters.motivo.length && !filters.motivo.includes(motivoFor(t) || NONE)) return false
       if (filters.categoria.length && !filters.categoria.includes(t.categoriaId ?? NONE)) return false
@@ -152,6 +177,18 @@ export default function Transactions() {
           <option value="receita">Receitas</option>
           <option value="despesa">Despesas</option>
         </select>
+        <ColumnFilter
+          label="Ano"
+          options={filterOptions.ano}
+          selected={filters.ano}
+          onChange={(v) => setFilters((f) => ({ ...f, ano: v }))}
+        />
+        <ColumnFilter
+          label="Mês"
+          options={filterOptions.mes}
+          selected={filters.mes}
+          onChange={(v) => setFilters((f) => ({ ...f, mes: v }))}
+        />
         {filtersActive && (
           <button
             onClick={() => setFilters(emptyFilters)}
