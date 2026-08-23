@@ -18,6 +18,7 @@ import {
   categoryYearRow,
   rendimentoMensalPivot,
   categoryDrilldown,
+  blocoShowLucroPorTemporada,
 } from '../lib/analytics'
 import { buildCascadingOptions } from '../lib/filterOptions'
 import { formatCurrency } from '../lib/format'
@@ -118,13 +119,17 @@ export default function Dashboard() {
   // por subcategoria) nas mesmas colunas de temporada — mas usando receita,
   // já que são valores que entram (patrocínio recebido, contribuição de
   // batuqueiro), não despesa.
-  const receitaExtraRows = useMemo(
-    () =>
-      ['patrocinio', 'batuqueiro']
-        .map((id) => categoryYearRow(transactions, categories, id, carnavalPivot.columns, { tipo: 'receita' }))
-        .filter(Boolean),
-    [transactions, categories, carnavalPivot.columns],
-  )
+  // Bloco Show entra como lucro (receita - despesa, com sinal) por temporada,
+  // não receita bruta como Patrocínio/Batuqueiro — as subcategorias de
+  // temporada usam o padrão "Temporada AA-BB" (ex.: 24-25 = Carnaval 2025,
+  // 25-26 = Carnaval 2026): o ano mais recente da temporada indica a coluna.
+  const receitaExtraRows = useMemo(() => {
+    const patrocinioBatuqueiro = ['patrocinio', 'batuqueiro']
+      .map((id) => categoryYearRow(transactions, categories, id, carnavalPivot.columns, { tipo: 'receita' }))
+      .filter(Boolean)
+    const blocoShowLucro = blocoShowLucroPorTemporada(transactions, categories, 'bloco-show', carnavalPivot.columns)
+    return blocoShowLucro ? [...patrocinioBatuqueiro, blocoShowLucro] : patrocinioBatuqueiro
+  }, [transactions, categories, carnavalPivot.columns])
   const receitaTotais = useMemo(() => {
     const totaisPorColuna = {}
     let totalGeral = 0
@@ -396,8 +401,11 @@ export default function Dashboard() {
               aqui é comparar as temporadas entre si. Subcategorias com o mesmo nome em mais de uma
               temporada aparecem numa linha só. As linhas de Patrocínio e Batuqueiro no final mostram
               receita (dinheiro que entrou), não despesa — por isso ficam separadas por uma linha, como
-              comparação ao lado do gasto de cada temporada. As linhas TOTAL DESPESA e TOTAL RECEITA no
-              rodapé somam cada um desses dois blocos separadamente (não se misturam).
+              comparação ao lado do gasto de cada temporada. A linha Bloco Show (lucro) mostra
+              receita menos despesa da temporada (pode ficar negativa) — a Temporada 24-25 entra na
+              coluna Carnaval 2025, a 25-26 na Carnaval 2026, e assim por diante, sempre pelo ano mais
+              recente da temporada. As linhas TOTAL DESPESA e TOTAL RECEITA no rodapé somam cada um
+              desses dois blocos separadamente (não se misturam).
             </p>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
@@ -450,7 +458,11 @@ export default function Dashboard() {
                       {carnavalPivot.columns.map((c) => (
                         <td key={c.categoriaId} className="py-1.5 pr-3 text-right tabular-nums whitespace-nowrap">
                           {row.valores[c.categoriaId] ? (
-                            formatCurrency(row.valores[c.categoriaId])
+                            <span
+                              style={{ color: row.valores[c.categoriaId] < 0 ? 'var(--series-2)' : undefined }}
+                            >
+                              {formatCurrency(row.valores[c.categoriaId])}
+                            </span>
                           ) : (
                             <span style={{ color: 'var(--text-muted)' }}>—</span>
                           )}
@@ -458,7 +470,7 @@ export default function Dashboard() {
                       ))}
                       <td
                         className="py-1.5 pl-3 text-right font-medium tabular-nums whitespace-nowrap"
-                        style={{ color: 'var(--series-1)' }}
+                        style={{ color: row.total < 0 ? 'var(--series-2)' : 'var(--series-1)' }}
                       >
                         {formatCurrency(row.total)}
                       </td>

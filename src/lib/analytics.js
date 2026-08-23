@@ -257,6 +257,55 @@ export function categoryYearRow(transactions, categories, categoryId, yearColumn
   return { categoriaId: cat.id, label: cat.label, valores, total }
 }
 
+// Última temporada citada no texto da subcategoria, convertida em ano cheio
+// — pega o último número (2 ou 4 dígitos) do texto: "Shows Temporada 24-25"
+// -> 2025, "Shows Temporada 25-26" -> 2026, "Shows Temporada 2021, 2022 e
+// 2023" -> 2023 (mesma regra: o ano mais recente da temporada é quem manda).
+// Subcategorias sem número (ex.: "Apetrechos", "Gestão") retornam null e
+// ficam de fora do lucro por temporada.
+function seasonEndYear(label) {
+  const matches = String(label || '').match(/\d{2,4}/g)
+  if (!matches || !matches.length) return null
+  const last = Number(matches[matches.length - 1])
+  return last < 100 ? 2000 + last : last
+}
+
+// Linha extra de lucro (receita - despesa, com sinal) de uma categoria por
+// temporada, alinhada às mesmas colunas de `subcategoriaPivot` — pensada pro
+// Bloco Show, cujas subcategorias de temporada usam o padrão "Temporada
+// AA-BB" (não um ano cheio só) e têm tanto receita quanto despesa. Só entram
+// no cálculo as subcategorias cujo nome termina numa temporada reconhecida
+// (via `seasonEndYear`); as demais (custos gerais da categoria, sem
+// temporada) ficam de fora.
+export function blocoShowLucroPorTemporada(transactions, categories, categoryId, yearColumns) {
+  const cat = categories.find((c) => c.id === categoryId)
+  if (!cat) return null
+
+  const colByYear = new Map()
+  for (const col of yearColumns) {
+    for (const y of extractYears(col.label)) colByYear.set(y, col.categoriaId)
+  }
+
+  const subToCol = new Map()
+  for (const sub of cat.subcategorias || []) {
+    const year = seasonEndYear(sub.label)
+    if (year != null && colByYear.has(year)) subToCol.set(sub.id, colByYear.get(year))
+  }
+
+  const valores = {}
+  let total = 0
+  for (const t of transactions) {
+    if (t.categoriaId !== categoryId) continue
+    const colId = subToCol.get(t.subcategoriaId)
+    if (!colId) continue
+    const v = t.tipo === 'receita' ? t.valor : -Math.abs(t.valor)
+    valores[colId] = (valores[colId] ?? 0) + v
+    total += v
+  }
+
+  return { categoriaId: cat.id, label: `${cat.label} (lucro)`, valores, total }
+}
+
 // Tabela mês (linha) x ano (coluna) de "Rendimento": soma, com sinal (um mês
 // de rendimento negativo aparece negativo), todo lançamento cujo Motivo seja
 // exatamente "Rendimento" (ignorando maiúscula/acento) — em qualquer
