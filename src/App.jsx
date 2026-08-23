@@ -8,6 +8,7 @@ import Dashboard from './pages/Dashboard'
 import ImportPage from './pages/ImportPage'
 import ReviewQueue from './pages/ReviewQueue'
 import Transactions from './pages/Transactions'
+import Caixinha from './pages/Caixinha'
 import Categories from './pages/Categories'
 import Settings from './pages/Settings'
 
@@ -26,6 +27,7 @@ export default function App() {
         <Route path="/importar" element={<ImportPage />} />
         <Route path="/revisar" element={<ReviewQueue />} />
         <Route path="/lancamentos" element={<Transactions />} />
+        <Route path="/caixinha" element={<Caixinha />} />
         <Route path="/categorias" element={<Categories />} />
         <Route path="/configuracoes" element={<Settings />} />
         <Route path="*" element={<Navigate to="/" replace />} />

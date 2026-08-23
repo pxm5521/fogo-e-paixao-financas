@@ -439,3 +439,67 @@ export function rendimentoMensalPivot(transactions) {
 
   return { anos, linhas, totalPorAno, totalGeral }
 }
+
+// Resumo mensal da Caixinha: uma linha por mês que tem aporte, saque ou
+// saldo registrado, com um "rendimento" implícito nos meses em que há saldo
+// — a diferença entre o saldo desse mês e o saldo do checkpoint anterior,
+// descontando os aportes e saques acumulados desde então (soma desde o
+// último mês com saldo registrado, não só o mês corrente, pra cobrir meses
+// sem saldo no meio do caminho). Sem saldo anterior pra comparar (primeiro
+// checkpoint, ou mês sem saldo ainda), o rendimento fica null.
+export function caixinhaResumoMensal(movimentos, saldos) {
+  const porMes = new Map() // "ano-mes" -> { ano, mes, aportes, saques, saldo }
+
+  function keyFor(ano, mes) {
+    return `${ano}-${mes}`
+  }
+
+  for (const m of movimentos) {
+    const [anoStr, mesStr] = (m.data || '').split('-')
+    const ano = Number(anoStr)
+    const mes = Number(mesStr)
+    if (!ano || !mes) continue
+    const key = keyFor(ano, mes)
+    if (!porMes.has(key)) porMes.set(key, { ano, mes, aportes: 0, saques: 0, saldo: null })
+    const bucket = porMes.get(key)
+    if (m.tipo === 'aporte') bucket.aportes += Math.abs(m.valor)
+    else if (m.tipo === 'saque') bucket.saques += Math.abs(m.valor)
+  }
+
+  for (const s of saldos) {
+    if (!s.ano || !s.mes) continue
+    const key = keyFor(s.ano, s.mes)
+    if (!porMes.has(key)) porMes.set(key, { ano: s.ano, mes: s.mes, aportes: 0, saques: 0, saldo: null })
+    porMes.get(key).saldo = s.saldo
+  }
+
+  const linhas = Array.from(porMes.values()).sort(
+    (a, b) => a.ano * 12 + a.mes - (b.ano * 12 + b.mes),
+  )
+
+  let prevSaldo = null
+  let accAportes = 0
+  let accSaques = 0
+  return linhas.map((linha) => {
+    accAportes += linha.aportes
+    accSaques += linha.saques
+    let rendimento = null
+    if (linha.saldo != null && prevSaldo != null) {
+      rendimento = linha.saldo - prevSaldo - accAportes + accSaques
+    }
+    const row = {
+      ano: linha.ano,
+      mes: linha.mes,
+      aportes: linha.aportes,
+      saques: linha.saques,
+      saldo: linha.saldo,
+      rendimento,
+    }
+    if (linha.saldo != null) {
+      prevSaldo = linha.saldo
+      accAportes = 0
+      accSaques = 0
+    }
+    return row
+  })
+}

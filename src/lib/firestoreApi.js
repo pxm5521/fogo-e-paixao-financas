@@ -35,6 +35,14 @@ export function settingsRef() {
   return doc(blocoRef(), 'meta', 'settings')
 }
 
+export function caixinhaMovimentosCol() {
+  return collection(blocoRef(), 'caixinhaMovimentos')
+}
+
+export function caixinhaSaldosCol() {
+  return collection(blocoRef(), 'caixinhaSaldos')
+}
+
 // ---------- Transações ----------
 
 export function watchTransactions(onChange, onError) {
@@ -135,4 +143,42 @@ export function watchSettings(onChange, onError) {
 
 export async function updateSettings(patch) {
   await setDoc(settingsRef(), patch, { merge: true })
+}
+
+// ---------- Caixinha (registro separado de aportes/saques e saldo mensal) ----------
+
+export function watchCaixinhaMovimentos(onChange, onError) {
+  const q = query(caixinhaMovimentosCol(), orderBy('data', 'desc'))
+  return onSnapshot(q, (snap) => onChange(snap.docs.map((d) => ({ id: d.id, ...d.data() }))), onError)
+}
+
+export async function createCaixinhaMovimento(mov) {
+  return addDoc(caixinhaMovimentosCol(), { ...mov, createdAt: new Date().toISOString() })
+}
+
+export async function updateCaixinhaMovimento(id, patch) {
+  return updateDoc(doc(caixinhaMovimentosCol(), id), patch)
+}
+
+export async function deleteCaixinhaMovimento(id) {
+  return deleteDoc(doc(caixinhaMovimentosCol(), id))
+}
+
+export function watchCaixinhaSaldos(onChange, onError) {
+  return onSnapshot(caixinhaSaldosCol(), (snap) => onChange(snap.docs.map((d) => ({ id: d.id, ...d.data() }))), onError)
+}
+
+// Um saldo por mês — o id do documento já é `${ano}-${mes}`, então salvar de
+// novo o saldo do mesmo mês só atualiza (upsert), nunca duplica.
+export async function upsertCaixinhaSaldo(ano, mes, saldo) {
+  const id = `${ano}-${String(mes).padStart(2, '0')}`
+  await setDoc(
+    doc(caixinhaSaldosCol(), id),
+    { ano, mes, saldo, updatedAt: new Date().toISOString() },
+    { merge: true },
+  )
+}
+
+export async function deleteCaixinhaSaldo(id) {
+  await deleteDoc(doc(caixinhaSaldosCol(), id))
 }

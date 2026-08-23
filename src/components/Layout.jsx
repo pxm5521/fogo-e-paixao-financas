@@ -6,6 +6,7 @@ const NAV = [
   { to: '/importar', label: 'Importar extrato' },
   { to: '/revisar', label: 'A revisar' },
   { to: '/lancamentos', label: 'Lançamentos' },
+  { to: '/caixinha', label: 'Caixinha' },
   { to: '/categorias', label: 'Categorias' },
   { to: '/configuracoes', label: 'Configurações' },
 ]

@@ -4,6 +4,8 @@ import {
   watchCategories,
   watchSettings,
   ensureDefaultCategories,
+  watchCaixinhaMovimentos,
+  watchCaixinhaSaldos,
 } from '../lib/firestoreApi'
 
 export function useTransactions(enabled) {
@@ -57,4 +59,42 @@ export function useSettings(enabled) {
     return unsub
   }, [enabled])
   return settings
+}
+
+export function useCaixinhaMovimentos(enabled) {
+  const [movimentos, setMovimentos] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (!enabled) return
+    const unsub = watchCaixinhaMovimentos(
+      (rows) => {
+        setMovimentos(rows)
+        setLoading(false)
+      },
+      () => setLoading(false),
+    )
+    return unsub
+  }, [enabled])
+
+  return { movimentos, loading }
+}
+
+export function useCaixinhaSaldos(enabled) {
+  const [saldos, setSaldos] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (!enabled) return
+    const unsub = watchCaixinhaSaldos(
+      (rows) => {
+        setSaldos(rows)
+        setLoading(false)
+      },
+      () => setLoading(false),
+    )
+    return unsub
+  }, [enabled])
+
+  return { saldos, loading }
 }
