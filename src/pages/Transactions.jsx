@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import Card from '../components/Card'
 import CategoryPicker from '../components/CategoryPicker'
 import ColumnFilter from '../components/ColumnFilter'
+import DateInput from '../components/DateInput'
 import TransactionFormModal from '../components/TransactionFormModal'
 import { useTransactions, useCategories } from '../hooks/useFirestoreData'
 import { updateTransaction, deleteTransaction } from '../lib/firestoreApi'
@@ -112,6 +113,8 @@ export default function Transactions() {
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [transactions, search, tipo, filters, categories])
+
+  const totalFiltrado = useMemo(() => filtered.reduce((sum, t) => sum + t.valor, 0), [filtered])
 
   const filtersActive = Object.values(filters).some((v) => v.length > 0)
 
@@ -238,6 +241,20 @@ export default function Transactions() {
                 />
               ))}
             </tbody>
+            <tfoot>
+              <tr className="border-t-2" style={{ borderColor: 'var(--border)' }}>
+                <td className="py-1.5 pr-2 font-medium" colSpan={6}>
+                  Total ({filtered.length} lançamento{filtered.length === 1 ? '' : 's'})
+                </td>
+                <td
+                  className="py-1.5 pr-2 text-right font-semibold tabular-nums whitespace-nowrap"
+                  style={{ color: totalFiltrado < 0 ? 'var(--series-2)' : 'var(--series-1)' }}
+                >
+                  {formatCurrency(totalFiltrado)}
+                </td>
+                <td></td>
+              </tr>
+            </tfoot>
           </table>
           {filtered.length === 0 && (
             <p className="py-8 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
@@ -334,10 +351,9 @@ function TransactionRow({ t, categories, categoryLabelFor, subcategoryLabelFor }
     return (
       <tr className="border-t align-top" style={{ borderColor: 'var(--gridline)' }}>
         <td className="py-1.5 pr-2">
-          <input
-            type="date"
+          <DateInput
             value={form.data}
-            onChange={(e) => setForm((f) => ({ ...f, data: e.target.value }))}
+            onChange={(iso) => setForm((f) => ({ ...f, data: iso }))}
             className={editInputClass}
             style={{ borderColor: 'var(--border)' }}
           />

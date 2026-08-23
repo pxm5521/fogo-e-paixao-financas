@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import CategoryPicker from './CategoryPicker'
+import DateInput from './DateInput'
 import { createTransaction, updateTransaction, deleteTransaction } from '../lib/firestoreApi'
 
 const inputClass = 'w-full rounded-md border bg-transparent px-2.5 py-1.5 text-sm'
@@ -103,11 +104,10 @@ export default function TransactionFormModal({ categories, editing, onClose }) {
 
           <label className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>
             Data
-            <input
-              type="date"
+            <DateInput
               required
               value={form.data}
-              onChange={(e) => setForm((f) => ({ ...f, data: e.target.value }))}
+              onChange={(iso) => setForm((f) => ({ ...f, data: iso }))}
               className={inputClass}
               style={{ borderColor: 'var(--border)' }}
             />

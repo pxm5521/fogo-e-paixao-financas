@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import Card from '../components/Card'
+import DateInput from '../components/DateInput'
 import StatCard from '../components/StatCard'
 import MonthlyBarChart from '../components/charts/MonthlyBarChart'
 import BalanceLineChart from '../components/charts/BalanceLineChart'
@@ -90,11 +91,11 @@ export default function Dashboard() {
       <div className="flex flex-wrap items-center gap-2">
         <label className="flex items-center gap-1.5 text-sm" style={{ color: 'var(--text-secondary)' }}>
           De
-          <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className={selectClass} style={{ borderColor: 'var(--border)' }} />
+          <DateInput value={from} onChange={setFrom} className={selectClass} style={{ borderColor: 'var(--border)' }} />
         </label>
         <label className="flex items-center gap-1.5 text-sm" style={{ color: 'var(--text-secondary)' }}>
           Até
-          <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className={selectClass} style={{ borderColor: 'var(--border)' }} />
+          <DateInput value={to} onChange={setTo} className={selectClass} style={{ borderColor: 'var(--border)' }} />
         </label>
         <select value={evento} onChange={(e) => setEvento(e.target.value)} className={selectClass} style={{ borderColor: 'var(--border)' }}>
           <option value="">Todos os eventos/temporadas</option>
